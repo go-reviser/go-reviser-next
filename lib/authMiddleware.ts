@@ -1,12 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { extractTokenFromHeader, verifyToken } from './auth';
-import User, { IUser } from '@/models/User';
+import { extractTokenFromHeader, TokenPayload, verifyToken } from './auth';
 
 type NextApiHandler = (req: NextApiRequest, res: NextApiResponse) => Promise<void>;
 
 // Interface for authenticated request with user information
 export interface AuthenticatedRequest extends NextApiRequest {
-    user?: IUser;
+    user?: TokenPayload;
 }
 
 // Middleware to verify authentication token and attach user to request
@@ -27,14 +26,7 @@ export function withAuth(handler: NextApiHandler) {
                 return res.status(401).json({ message: 'Invalid or expired token' });
             }
 
-            // Find the user from the database
-            const user = await User.findOne({ userId: decoded.userId });
-            if (!user) {
-                return res.status(401).json({ message: 'User not found' });
-            }
-
-            // Attach the user to the request
-            req.user = user;
+            req.user = decoded as TokenPayload;
 
             // Call the original handler
             return handler(req, res);
@@ -43,4 +35,4 @@ export function withAuth(handler: NextApiHandler) {
             return res.status(500).json({ message: 'Internal server error' });
         }
     };
-} 
+}

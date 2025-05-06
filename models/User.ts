@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4, validate } from 'uuid';
+import { SubscriptionStatus } from '../constants/enums';
 
 export interface IUser extends Document {
     userId: string;
@@ -7,10 +8,10 @@ export interface IUser extends Document {
     email: string;
     passwordHash?: string;
     createdAt: Date;
-    subscriptionStatus: 'Free' | 'Premium';
+    subscriptionStatus: typeof SubscriptionStatus.FREE | typeof SubscriptionStatus.PREMIUM;
     profilePictureURL?: string;
     lastLogin?: Date;
-    mobileNumber?: number;
+    mobileNumber?: string;
 }
 
 const UserSchema: Schema = new Schema({
@@ -40,17 +41,29 @@ const UserSchema: Schema = new Schema({
     },
     subscriptionStatus: {
         type: String,
-        enum: ['Free', 'Premium'],
-        default: 'Free',
+        enum: [SubscriptionStatus.FREE, SubscriptionStatus.PREMIUM],
+        default: SubscriptionStatus.FREE,
     },
     profilePictureURL: {
         type: String,
+        validate: {
+            validator: function (url) {
+                return /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg|webp))$/i.test(url);
+            },
+            message: msg => `${msg.value} is not a valid image URL!`
+        }
     },
     lastLogin: {
         type: Date,
     },
     mobileNumber: {
         type: Number,
+        validate: {
+            validator: function (num: string) {
+                return /^[0-9]{10,15}$/.test(num);
+            },
+            message: msg => `${msg.value} is not a valid mobile number`
+        }
     },
     isAdmin: {
         type: Boolean,

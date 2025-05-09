@@ -4,6 +4,7 @@ import { NextApiResponse } from "next";
 import { withAuth, AuthenticatedRequest } from "@/lib/authMiddleware";
 import { isAdmin } from "@/lib/isAdminMiddleware";
 import Topic from "@/models/Topic";
+import { Difficulty } from "@/constants/enums";
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
@@ -13,41 +14,67 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     try {
         await connectToDatabase();
 
-        let { data } = req.body;
+        const { data } = req.body;
 
-        const createdData = [];
+        const createdData = [], incorrectData = [];
 
         for (const elem of data) {
-            let { topicName, moduleName } = elem;
+            let { topicName, moduleName, difficulty } = elem;
             topicName = topicName.trim();
             moduleName = moduleName.trim();
+            difficulty = difficulty?.trim();
 
             const moduleData = await Module.findOne({ name: moduleName });
 
-            if (!moduleData)
-                return res.status(400).json({
-                    msg: `Please correct the data, unable to add ${topicName} because module - ${moduleName} does not exist.`
-                });
+            if (!moduleData) {
+                incorrectData.push({ msg: `Module - ${moduleName} does not exist. Please create one` });
+                continue;
+            }
 
-            if (await Topic.findOne({ name: topicName, moduleId: moduleData.moduleId }))
-                return res.status(400).json({
-                    msg: `Please correct the data, unable to add ${topicName} because it already exists in module - ${moduleName}`
+            if (await Topic.findOne({ name: topicName, moduleId: moduleData.moduleId })) {
+                incorrectData.push({
+                    msg: `Please correct the data, Topic - ${topicName} already exists in module - ${moduleName}.`
                 });
+                continue;
+            }
 
-            const topic = await Topic.create({ name: topicName, moduleId: moduleData.moduleId });
+            if (difficulty && !Object.values(Difficulty).includes(difficulty as Difficulty)) {
+                incorrectData.push({
+                    msg: `Either the difficulty can be empty or any one of ${Object.values(Difficulty)}.`
+                });
+            }
+        }
+
+        if (incorrectData.length !== 0) {
+            return res.status(400).json({
+                message: "Data is incorrect",
+                incorrectData
+            });
+        }
+
+        for (const elem of data) {
+            let { topicName, moduleName, difficulty } = elem;
+            topicName = topicName.trim();
+            moduleName = moduleName.trim();
+            difficulty = difficulty?.trim();
+
+            const moduleData = await Module.findOne({ name: moduleName });
+
+            const topic = await Topic.create({ name: topicName, moduleId: moduleData.moduleId, difficulty: difficulty });
 
             createdData.push(
                 {
                     name: topic.name,
                     topicId: topic.topicId,
-                    moduleId: topic.moduleId
+                    moduleId: topic.moduleId,
+                    difficulty: topic.difficulty
                 }
             );
 
         }
 
-        return res.status(201).json({ 
-            message: `New topics added successfully as requested`, 
+        return res.status(201).json({
+            message: `New topics added successfully as requested`,
             createdData: createdData
         });
     } catch (err) {

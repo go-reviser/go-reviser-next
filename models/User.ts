@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { SubscriptionStatus } from '../constants/enums';
+import { SubscriptionStatus } from '@/constants/enums';
 
 export interface IUser extends Document {
     userId: string;
@@ -12,6 +12,7 @@ export interface IUser extends Document {
     profilePictureURL?: string;
     lastLogin?: Date;
     mobileNumber?: string;
+    isAdmin?: boolean;
 }
 
 const UserSchema: Schema = new Schema({
@@ -47,10 +48,10 @@ const UserSchema: Schema = new Schema({
     profilePictureURL: {
         type: String,
         validate: {
-            validator: function (url) {
+            validator: function (url: string) {
                 return /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg|webp))$/i.test(url);
             },
-            message: msg => `${msg.value} is not a valid image URL!`
+            message: (msg: { value: string }) => `${msg.value} is not a valid image URL!`
         }
     },
     lastLogin: {
@@ -62,7 +63,7 @@ const UserSchema: Schema = new Schema({
             validator: function (num: string) {
                 return /^[0-9]{10,15}$/.test(num);
             },
-            message: msg => `${msg.value} is not a valid mobile number`
+            message: (msg: { value: string }) => `${msg.value} is not a valid mobile number`
         }
     },
     isAdmin: {

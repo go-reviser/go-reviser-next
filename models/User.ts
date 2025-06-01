@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { v4 as uuidv4, validate } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 import { SubscriptionStatus } from '../constants/enums';
 
 export interface IUser extends Document {

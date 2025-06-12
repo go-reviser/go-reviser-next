@@ -1,19 +1,22 @@
 // components/Layout.tsx
-import Head from 'next/head'
 import { ReactNode } from 'react'
+import Header from './Header'
 
-export default function Layout({ children }: { children: ReactNode }) {
+interface LayoutProps {
+    children: ReactNode
+}
+
+const Layout = ({ children }: LayoutProps) => {
     return (
-        <div>
-            <Head>
-                <h1 className="text-xl font-bold">GOReviser</h1>
-            </Head>
-
-            <main className="p-6">{children}</main>
-
-            <footer className="p-4 text-center text-sm text-gray-500">
-                © 2025 GOReviser
-            </footer>
+        <div className="min-h-screen flex flex-col">
+            <div className="fixed top-0 left-0 right-0 z-50">
+                <Header />
+            </div>
+            <main className="flex-1 pt-[72px]">
+                {children}
+            </main>
         </div>
     )
 }
+
+export default Layout

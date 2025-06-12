@@ -13,6 +13,8 @@ export interface IUser extends Document {
     lastLogin?: Date;
     mobileNumber?: string;
     isAdmin?: boolean;
+    resetPasswordToken?: string | null;
+    resetPasswordExpires?: Date | null;
 }
 
 const UserSchema: Schema = new Schema({
@@ -69,7 +71,15 @@ const UserSchema: Schema = new Schema({
     isAdmin: {
         type: Boolean,
         default: false,
-    }
+    },
+    resetPasswordToken: {
+        type: String,
+        default: null,
+    },
+    resetPasswordExpires: {
+        type: Date,
+        default: null,
+    },
 }, { timestamps: true });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema); 

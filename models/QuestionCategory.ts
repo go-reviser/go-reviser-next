@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 import { ISubject } from './Subject';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -7,7 +7,7 @@ export interface IQuestionCategory extends Document {
     name: string;
     createdAt: Date;
     updatedAt: Date;
-    subjectId: Types.ObjectId | ISubject;
+    subject: Types.ObjectId | ISubject;
 }
 
 const questionCategorySchema = new Schema<IQuestionCategory>(
@@ -24,7 +24,7 @@ const questionCategorySchema = new Schema<IQuestionCategory>(
             unique: true,
             trim: true
         },
-        subjectId: {
+        subject: {
             type: Schema.Types.ObjectId,
             ref: 'Subject',
             required: true
@@ -34,5 +34,4 @@ const questionCategorySchema = new Schema<IQuestionCategory>(
         timestamps: true
     }
 );
-
-export const QuestionCategory = model<IQuestionCategory>('QuestionCategory', questionCategorySchema); 
+export const QuestionCategory = mongoose.models.QuestionCategory || model<IQuestionCategory>('QuestionCategory', questionCategorySchema); 

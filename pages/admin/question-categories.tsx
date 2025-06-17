@@ -83,40 +83,6 @@ const AdminQuestionCategories = () => {
         }
     };
 
-    const handleCreateCategory = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            const response = await fetch('/api/question-categories/create', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    name: categoryName,
-                    subjectName: selectedSubject,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                setSuccess('Category created successfully');
-                setCategoryName('');
-                setSelectedSubject('');
-                fetchCategories();
-            } else {
-                setError(data.message || 'Failed to create category');
-            }
-        } catch (error) {
-            console.error('Error creating category:', error);
-            setError('Failed to create category');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleCreateBulk = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);

@@ -1,11 +1,12 @@
 import { Difficulty } from '@/constants/enums';
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import { IModule } from './Module';
 
 export interface ITopic extends Document {
     topicId: string;
     name: string;
-    moduleId: string;
+    module: Types.ObjectId | IModule;
     length?: number;
     difficulty?: Difficulty;
 }
@@ -22,8 +23,8 @@ const TopicSchema: Schema = new Schema({
         trim: true,
         required: true
     },
-    moduleId: {
-        type: String,
+    module: {
+        type: Schema.Types.ObjectId,
         required: true,
         ref: 'Module'
     },

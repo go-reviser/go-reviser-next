@@ -21,24 +21,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
 
         for (const category of categories) {
-            if (!category.name && !category.uuid) {
+            if (!category.name && !category.id) {
                 return res.status(400).json({
-                    message: 'Each category must have a name or uuid',
+                    message: 'Each category must have a name or id',
                     invalidCategory: category
                 });
             }
         }
 
         for (const category of categories) {
-            if (category.uuid && category.name) {
-                return res.status(400).json({ message: 'Both uuid and name cannot be provided. Provide only one.' });
+            if (category.id && category.name) {
+                return res.status(400).json({ message: 'Both id and name cannot be provided. Provide only one.' });
             }
         }
 
         for (const category of categories) {
             if (!(await QuestionCategory.exists({
                 $or: [
-                    { _id: category.uuid },
+                    { questionCategoryId: category.id },
                     { name: category.name }
                 ]
             }))) {
@@ -49,7 +49,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         await QuestionCategory.deleteMany({
             $or: [
-                { _id: { $in: categories.map(cat => cat.uuid) } },
+                { questionCategoryId: { $in: categories.map(cat => cat.id) } },
                 { name: { $in: categories.map(cat => cat.name) } }
             ]
         });
@@ -57,7 +57,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         return res.status(200).json({
             message: 'Question category deleted successfully',
-            deletedCategories: categories.map(cat => cat.uuid || cat.name)
+            deletedCategories: categories.map(cat => cat.id || cat.name)
         });
 
     } catch (error: unknown) {

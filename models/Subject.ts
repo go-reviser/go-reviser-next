@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ISubject extends Document {
@@ -21,4 +21,8 @@ const SubjectSchema: Schema = new Schema({
     }
 }, { timestamps: true });
 
-export default mongoose.models.Subject || mongoose.model<ISubject>('Subject', SubjectSchema); 
+const Subject: Model<ISubject> = mongoose.models.Subject || mongoose.model<ISubject>('Subject', SubjectSchema);
+
+
+export default Subject;
+export { Subject };

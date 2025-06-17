@@ -15,15 +15,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         const categories = await QuestionCategory.find()
             .populate<{ subject: ISubject }>('subject')
-            .sort({ createdAt: -1 });
+
+        categories.sort((a, b) => {
+            const subjectCompare = a.subject.name.localeCompare(b.subject.name);
+            if (subjectCompare !== 0) return subjectCompare;
+            return a.name.localeCompare(b.name);
+        });
 
         return res.status(200).json({
             message: 'Question categories retrieved successfully',
-            data: categories.map(category => ({
-                questionCategoryId: category.questionCategoryId,
+            categories: categories.map(category => ({
+                id: category.questionCategoryId,
                 name: category.name,
                 subject: {
-                    subjectId: category.subject.subjectId,
+                    id: category.subject.subjectId,
                     name: category.subject.name
                 },
                 createdAt: category.createdAt,

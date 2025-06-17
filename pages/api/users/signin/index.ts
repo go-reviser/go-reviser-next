@@ -3,6 +3,16 @@ import User from "@/models/User";
 import { NextApiRequest, NextApiResponse } from "next";
 import bcrypt from "bcryptjs";
 import { generateToken } from "@/lib/auth";
+import { SubscriptionStatus } from "@/constants/enums";
+
+interface UserResponse {
+    userId: string;
+    name?: string;
+    email: string;
+    subscriptionStatus: typeof SubscriptionStatus.FREE | typeof SubscriptionStatus.PREMIUM;
+    profilePictureURL?: string;
+    isAdmin?: boolean;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Only allow POST requests
@@ -40,13 +50,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const token = generateToken(user);
 
         // Return user information (excluding password)
-        const userResponse = {
+        let userResponse: UserResponse = {
             userId: user.userId,
             name: user.name,
             email: user.email,
             subscriptionStatus: user.subscriptionStatus,
             profilePictureURL: user.profilePictureURL
         };
+
+        if (user.isAdmin) {
+            userResponse = {
+                ...userResponse,
+                isAdmin: true
+            };
+        }
 
         return res.status(200).json({
             message: 'Login successful',
@@ -57,4 +74,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('Signin error:', err);
         return res.status(500).json({ message: 'Internal server error' });
     }
-} 
+}

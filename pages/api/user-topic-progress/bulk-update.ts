@@ -4,6 +4,8 @@ import UserTopicProgress from '@/models/UserTopicProgress';
 import { connectToDatabase } from '@/lib/mongodb';
 import { AuthenticatedRequest } from '@/lib/isAdminMiddleware';
 import { withAuth } from '@/lib/authMiddleware';
+import User from '@/models/User';
+import Topic from '@/models/Topic';
 
 /**
  * API handler for bulk updating user topic progress
@@ -95,6 +97,9 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             });
         }
 
+        const user = await User.findOne({ userId: userId }).select('_id');
+        const topics = await Topic.find({ topicId: { $in: updates.map(update => update.topicId) } }).select('_id');
+
         for (const update of updates) {
             const { topicId, isCompleted, toRevise } = update;
 
@@ -116,7 +121,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             try {
                 // Find and update or create if not exists (upsert)
                 const updatedProgress = await UserTopicProgress.findOneAndUpdate(
-                    { userId, topicId },
+                    { user: user._id, topic: topics.find(topic => topic.topicId === topicId)?._id },
                     {
                         $set: {
                             isCompleted: isCompleted || toRevise,

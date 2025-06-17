@@ -3,6 +3,8 @@ import UserTopicProgress from '@/models/UserTopicProgress';
 import { connectToDatabase } from '@/lib/mongodb';
 import { AuthenticatedRequest } from '@/lib/isAdminMiddleware';
 import { withAuth } from '@/lib/authMiddleware';
+import User from '@/models/User';
+import Topic from '@/models/Topic';
 
 /**
  * API handler for bulk checking user topic progress
@@ -75,10 +77,13 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             });
         }
 
+        const user = await User.findOne({ userId: userId }).select('_id');
+        const topics = await Topic.find({ topicId: { $in: topicIds } }).select('_id');
+
         // Find all progress entries for the user and specified topics
         const progressEntries = await UserTopicProgress.find({
-            userId,
-            topicId: { $in: topicIds }
+            user: user._id,
+            topic: { $in: topics.map(topic => topic._id) }
         });
 
         // Create a map for quick lookups
@@ -87,7 +92,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             toRevise: boolean;
         }> = {};
         progressEntries.forEach(entry => {
-            progressMap[entry.topicId] = {
+            progressMap[entry.topic.toString()] = {
                 isCompleted: entry.isCompleted,
                 toRevise: entry.toRevise
             };
@@ -95,11 +100,11 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
         // Prepare the response with isCompleted for each requested topic
         const results = topicIds.map(topicId => {
-            if (progressMap[topicId]) {
+            if (progressMap[topicId.toString()]) {
                 return {
                     topicId,
                     exists: true,
-                    ...progressMap[topicId]
+                    ...progressMap[topicId.toString()]
                 };
             } else {
                 return {

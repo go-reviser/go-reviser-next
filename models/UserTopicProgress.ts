@@ -1,10 +1,12 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import { IUser } from './User';
+import { ITopic } from './Topic';
 
 export interface IUserTopicProgress extends Document {
     progressId: string;
-    userId: string;
-    topicId: string;
+    user: Types.ObjectId | IUser;
+    topic: Types.ObjectId | ITopic;
     isCompleted: boolean;
     toRevise: boolean;
 }
@@ -16,13 +18,13 @@ const UserTopicProgressSchema: Schema = new Schema({
         unique: true,
         required: true,
     },
-    userId: {
-        type: String,
+    user: {
+        type: Schema.Types.ObjectId,
         required: true,
         ref: 'User'
     },
-    topicId: {
-        type: String,
+    topic: {
+        type: Schema.Types.ObjectId,
         required: true,
         ref: 'Topic'
     },
@@ -39,7 +41,7 @@ const UserTopicProgressSchema: Schema = new Schema({
 }, { timestamps: true });
 
 // Create compound index for userId and topicId for faster lookups and enforcing uniqueness
-UserTopicProgressSchema.index({ userId: 1, topicId: 1 }, { unique: true });
+UserTopicProgressSchema.index({ user: 1, topic: 1 }, { unique: true });
 
 export default mongoose.models.UserTopicProgress ||
     mongoose.model<IUserTopicProgress>('UserTopicProgress', UserTopicProgressSchema);

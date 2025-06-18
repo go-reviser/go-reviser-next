@@ -29,12 +29,12 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             return res.status(400).json({ message: `Subject ${subjectName} does not exist` });
         }
 
-        if(await Module.findOne({ name: moduleName, subjectId: subject.subjectId }))
+        if(await Module.findOne({ name: moduleName, subject: subject._id }))
             return res.status(400).json({message: `Module ${moduleName} already exists in ${subject.name}`});
 
         const moduleCreated = await Module.create({
             name: moduleName,
-            subjectId: subject.subjectId
+            subject: subject._id
         })
 
 

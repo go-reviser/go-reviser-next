@@ -31,7 +31,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
                 continue;
             }
 
-            if (await Topic.findOne({ name: topicName, moduleId: moduleData.moduleId })) {
+            if (await Topic.findOne({ name: topicName, module: moduleData._id })) {
                 incorrectData.push({
                     msg: `Please correct the data, Topic - ${topicName} already exists in module - ${moduleName}.`
                 });
@@ -60,13 +60,13 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
             const moduleData = await Module.findOne({ name: moduleName });
 
-            const topic = await Topic.create({ name: topicName, moduleId: moduleData.moduleId, difficulty: difficulty });
+            const topic = await Topic.create({ name: topicName, module: moduleData._id, difficulty: difficulty });
 
             createdData.push(
                 {
                     name: topic.name,
                     topicId: topic.topicId,
-                    moduleId: topic.moduleId,
+                    module: topic.module,
                     difficulty: topic.difficulty
                 }
             );

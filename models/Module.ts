@@ -1,9 +1,10 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
+import { ISubject } from './Subject';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface IModule extends Document {
     moduleId: string;
-    subjectId: string;
+    subject: Types.ObjectId | ISubject;
     name: string;
 }
 
@@ -14,8 +15,8 @@ const ModuleSchema: Schema = new Schema({
         unique: true,
         required: true,
     },
-    subjectId: {
-        type: String,
+    subject: {
+        type: Schema.Types.ObjectId,
         required: true,
         ref: 'Subject',
     },

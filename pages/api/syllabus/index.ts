@@ -4,6 +4,27 @@ import { NextApiResponse } from "next";
 import { withAuth, AuthenticatedRequest } from "@/lib/authMiddleware";
 import Topic from "@/models/Topic";
 import Module from "@/models/Module";
+import { Types } from "mongoose";
+
+type LeanSubject = {
+    _id: Types.ObjectId;
+    name: string;
+    subjectId: string;
+    modules?: LeanModule[];
+};
+
+type LeanModule = {
+    _id: Types.ObjectId;
+    name: string;
+    moduleId: string;
+    topics?: LeanTopic[];
+};
+
+type LeanTopic = {
+    _id: Types.ObjectId;
+    name: string;
+    topicId: string;
+};
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     if (req.method !== 'GET') {
@@ -13,13 +34,13 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     try {
         await connectToDatabase();
 
-        const subjects = await Subject.find().select('name subjectId').lean();
+        const subjects = (await Subject.find().select('name subjectId').lean()) as unknown as LeanSubject[];
 
         for (const subject of subjects) {
-            const modules = await Module.find({ subjectId: subject.subjectId }).select('name moduleId').lean();
+            const modules = (await Module.find({ subject: subject._id }).select('name moduleId').lean()) as unknown as LeanModule[];
 
             for (const moduleElem of modules) {
-                const topics = await Topic.find({ moduleId: moduleElem.moduleId }).select('name topicId').lean();
+                const topics = (await Topic.find({ moduleId: moduleElem.moduleId }).select('name topicId').lean()) as unknown as LeanTopic[];
                 moduleElem.topics = topics;
             }
 

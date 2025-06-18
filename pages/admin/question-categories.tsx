@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useReducer } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -17,8 +17,83 @@ interface QuestionCategory {
     };
 }
 
+// Form state interface
+interface FormState {
+    selectedSubject: string;
+    bulkCategories: string;
+    selectedCategories: string[];
+    loading: boolean;
+    error: string;
+    success: string;
+}
+
+// Form action types
+type FormAction =
+    | { type: 'SET_SUBJECT'; payload: string }
+    | { type: 'SET_BULK_CATEGORIES'; payload: string }
+    | { type: 'SET_SELECTED_CATEGORIES'; payload: string[] }
+    | { type: 'TOGGLE_CATEGORY'; payload: string }
+    | { type: 'SET_LOADING'; payload: boolean }
+    | { type: 'SET_ERROR'; payload: string }
+    | { type: 'SET_SUCCESS'; payload: string }
+    | { type: 'RESET_FORM' }
+    | { type: 'SELECT_ALL_CATEGORIES'; payload: string[] }
+    | { type: 'CLEAR_MESSAGES' };
+
+// Initial form state
+const initialFormState: FormState = {
+    selectedSubject: '',
+    bulkCategories: '',
+    selectedCategories: [],
+    loading: false,
+    error: '',
+    success: ''
+};
+
+// Form reducer
+const formReducer = (state: FormState, action: FormAction): FormState => {
+    switch (action.type) {
+        case 'SET_SUBJECT':
+            return { ...state, selectedSubject: action.payload };
+        case 'SET_BULK_CATEGORIES':
+            return { ...state, bulkCategories: action.payload };
+        case 'SET_SELECTED_CATEGORIES':
+            return { ...state, selectedCategories: action.payload };
+        case 'TOGGLE_CATEGORY':
+            return {
+                ...state,
+                selectedCategories: state.selectedCategories.includes(action.payload)
+                    ? state.selectedCategories.filter(id => id !== action.payload)
+                    : [...state.selectedCategories, action.payload]
+            };
+        case 'SET_LOADING':
+            return { ...state, loading: action.payload };
+        case 'SET_ERROR':
+            return { ...state, error: action.payload, success: '' };
+        case 'SET_SUCCESS':
+            return { ...state, success: action.payload, error: '' };
+        case 'RESET_FORM':
+            return {
+                ...state,
+                selectedSubject: '',
+                bulkCategories: ''
+            };
+        case 'SELECT_ALL_CATEGORIES':
+            return { ...state, selectedCategories: action.payload };
+        case 'CLEAR_MESSAGES':
+            return { ...state, error: '', success: '' };
+        default:
+            return state;
+    }
+};
+
 const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
+    if (!token) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/signin';
+    }
     return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -30,15 +105,7 @@ const AdminQuestionCategories = () => {
     const { user } = useAuth();
     const [subjects, setSubjects] = useState<Subject[]>([]);
     const [categories, setCategories] = useState<QuestionCategory[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-
-    // Form states
-    const [selectedSubject, setSelectedSubject] = useState('');
-    const [categoryName, setCategoryName] = useState('');
-    const [bulkCategories, setBulkCategories] = useState('');
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [formState, dispatch] = useReducer(formReducer, initialFormState);
 
     useEffect(() => {
         if (user && !user.isAdmin) {
@@ -62,7 +129,7 @@ const AdminQuestionCategories = () => {
             }
         } catch (error) {
             console.error('Error fetching subjects:', error);
-            setError('Failed to fetch subjects');
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch subjects' });
         }
     };
 
@@ -73,24 +140,22 @@ const AdminQuestionCategories = () => {
                 headers: getAuthHeaders()
             });
             const data = await response.json();
-            console.log('data', data);
             if (data.categories) {
                 setCategories(data.categories);
             }
         } catch (error) {
             console.error('Error fetching categories:', error);
-            setError('Failed to fetch categories');
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch categories' });
         }
     };
 
     const handleCreateBulk = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccess('');
+        dispatch({ type: 'SET_LOADING', payload: true });
+        dispatch({ type: 'CLEAR_MESSAGES' });
 
         try {
-            const categoryList = bulkCategories
+            const categoryList = formState.bulkCategories
                 .split('\n')
                 .map(name => name.trim())
                 .filter(name => name);
@@ -101,7 +166,7 @@ const AdminQuestionCategories = () => {
                 body: JSON.stringify({
                     categories: categoryList.map(name => ({
                         name,
-                        subjectName: selectedSubject,
+                        subjectName: formState.selectedSubject,
                     })),
                 }),
             });
@@ -109,59 +174,49 @@ const AdminQuestionCategories = () => {
             const data = await response.json();
 
             if (response.ok) {
-                setSuccess('Categories created successfully');
-                setBulkCategories('');
-                setSelectedSubject('');
+                dispatch({ type: 'SET_SUCCESS', payload: 'Categories created successfully' });
+                dispatch({ type: 'RESET_FORM' });
                 fetchCategories();
             } else {
-                setError(data.message || 'Failed to create categories');
+                dispatch({ type: 'SET_ERROR', payload: data.message || 'Failed to create categories' });
             }
         } catch (error) {
             console.error('Error creating categories:', error);
-            setError('Failed to create categories');
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to create categories' });
         } finally {
-            setLoading(false);
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
     };
 
     const handleDelete = async () => {
-        if (!selectedCategories.length) return;
-        setLoading(true);
-        setError('');
-        setSuccess('');
+        if (!formState.selectedCategories.length) return;
+        dispatch({ type: 'SET_LOADING', payload: true });
+        dispatch({ type: 'CLEAR_MESSAGES' });
 
         try {
             const response = await fetch('/api/question-categories/delete-bulk', {
                 method: 'DELETE',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({
-                    categories: selectedCategories.map(id => ({ id })),
+                    categories: formState.selectedCategories.map(id => ({ id })),
                 }),
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                setSuccess('Categories deleted successfully');
-                setSelectedCategories([]);
+                dispatch({ type: 'SET_SUCCESS', payload: 'Categories deleted successfully' });
+                dispatch({ type: 'SET_SELECTED_CATEGORIES', payload: [] });
                 fetchCategories();
             } else {
-                setError(data.message || 'Failed to delete categories');
+                dispatch({ type: 'SET_ERROR', payload: data.message || 'Failed to delete categories' });
             }
         } catch (error) {
             console.error('Error deleting categories:', error);
-            setError('Failed to delete categories');
+            dispatch({ type: 'SET_ERROR', payload: 'Failed to delete categories' });
         } finally {
-            setLoading(false);
+            dispatch({ type: 'SET_LOADING', payload: false });
         }
-    };
-
-    const toggleCategorySelection = (categoryId: string) => {
-        setSelectedCategories(prev =>
-            prev.includes(categoryId)
-                ? prev.filter(id => id !== categoryId)
-                : [...prev, categoryId]
-        );
     };
 
     if (!user?.isAdmin) {
@@ -174,34 +229,34 @@ const AdminQuestionCategories = () => {
                 <div className="max-w-7xl mx-auto">
                     <h1 className="text-3xl font-bold text-gray-900 mb-8">Manage Question Categories</h1>
 
-                    {error && (
+                    {formState.error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                            {error}
+                            {formState.error}
                         </div>
                     )}
 
-                    {success && (
+                    {formState.success && (
                         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                            {success}
+                            {formState.success}
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-8 md:grid-cols-6">
+                    <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                         {/* Create Bulk Categories */}
-                        <div className="h-fit bg-white shadow rounded-lg p-6 md:col-span-2">
+                        <div className="h-fit bg-white shadow rounded-lg p-6">
                             <h2 className="text-xl font-semibold mb-4">Create Bulk Categories</h2>
                             <form onSubmit={handleCreateBulk}>
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-gray-700">Subject</label>
                                     <select
-                                        value={selectedSubject}
-                                        onChange={(e) => setSelectedSubject(e.target.value)}
+                                        value={formState.selectedSubject}
+                                        onChange={(e) => dispatch({ type: 'SET_SUBJECT', payload: e.target.value })}
                                         className="p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required
                                     >
                                         <option value="">Select a subject</option>
                                         {subjects.map((subject) => (
-                                            <option key={subject.id} value={subject.id}>
+                                            <option key={subject.name} value={subject.name}>
                                                 {subject.name}
                                             </option>
                                         ))}
@@ -212,8 +267,8 @@ const AdminQuestionCategories = () => {
                                         Category Names (one per line)
                                     </label>
                                     <textarea
-                                        value={bulkCategories}
-                                        onChange={(e) => setBulkCategories(e.target.value)}
+                                        value={formState.bulkCategories}
+                                        onChange={(e) => dispatch({ type: 'SET_BULK_CATEGORIES', payload: e.target.value })}
                                         rows={5}
                                         className="p-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         required
@@ -221,25 +276,25 @@ const AdminQuestionCategories = () => {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={formState.loading}
                                     className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 disabled:opacity-50"
                                 >
-                                    {loading ? 'Creating...' : 'Create Categories'}
+                                    {formState.loading ? 'Creating...' : 'Create Categories'}
                                 </button>
                             </form>
                         </div>
 
                         {/* Categories List */}
-                        <div className="bg-white shadow rounded-lg p-6 md:col-span-4">
+                        <div className="bg-white shadow rounded-lg p-6">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-xl font-semibold">Question Categories</h2>
-                                {selectedCategories.length > 0 && (
+                                {formState.selectedCategories.length > 0 && (
                                     <button
                                         onClick={handleDelete}
-                                        disabled={loading}
+                                        disabled={formState.loading}
                                         className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 disabled:opacity-50"
                                     >
-                                        {loading ? 'Deleting...' : `Delete Selected (${selectedCategories.length})`}
+                                        {formState.loading ? 'Deleting...' : `Delete Selected (${formState.selectedCategories.length})`}
                                     </button>
                                 )}
                             </div>
@@ -252,12 +307,12 @@ const AdminQuestionCategories = () => {
                                                     type="checkbox"
                                                     onChange={(e) => {
                                                         if (e.target.checked) {
-                                                            setSelectedCategories(categories.map(cat => cat.id));
+                                                            dispatch({ type: 'SELECT_ALL_CATEGORIES', payload: categories.map(cat => cat.id) });
                                                         } else {
-                                                            setSelectedCategories([]);
+                                                            dispatch({ type: 'SET_SELECTED_CATEGORIES', payload: [] });
                                                         }
                                                     }}
-                                                    checked={selectedCategories.length === categories.length && categories.length > 0}
+                                                    checked={formState.selectedCategories.length === categories.length && categories.length > 0}
                                                 />
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -274,8 +329,8 @@ const AdminQuestionCategories = () => {
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedCategories.includes(category.id)}
-                                                        onChange={() => toggleCategorySelection(category.id)}
+                                                        checked={formState.selectedCategories.includes(category.id)}
+                                                        onChange={() => dispatch({ type: 'TOGGLE_CATEGORY', payload: category.id })}
                                                     />
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{category.name}</td>

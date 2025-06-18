@@ -34,22 +34,3 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-
-## .env.local
-
-MONGODB_URI=
-JWT_SECRET=
-JWT_TOKEN_EXPIRY_TIME=7d
-
-# The base URL of your app (used for reset link in emails)
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
-
-# Email sending configuration
-EMAIL_FROM=
-EMAIL_HOST=smtp.gmail.com            # SMTP server host (e.g., smtp.gmail.com, smtp.sendgrid.net)
-EMAIL_PORT=465                              # SMTP port (465 for SSL, 587 for TLS, etc.)
-EMAIL_USER=
-EMAIL_PASS=
-

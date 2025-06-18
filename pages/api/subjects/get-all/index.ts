@@ -19,7 +19,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         for(const subject of subjects) {
             subjectsData.push({
                 name: subject.name,
-                subjectId: subject.subjectId
+                id: subject.subjectId
             })
         }
 

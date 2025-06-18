@@ -23,6 +23,7 @@ interface FormState {
     bulkCategories: string;
     selectedCategories: string[];
     loading: boolean;
+    deletingCategories: boolean;
     error: string;
     success: string;
 }
@@ -34,6 +35,7 @@ type FormAction =
     | { type: 'SET_SELECTED_CATEGORIES'; payload: string[] }
     | { type: 'TOGGLE_CATEGORY'; payload: string }
     | { type: 'SET_LOADING'; payload: boolean }
+    | { type: 'SET_DELETING'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string }
     | { type: 'SET_SUCCESS'; payload: string }
     | { type: 'RESET_FORM' }
@@ -46,6 +48,7 @@ const initialFormState: FormState = {
     bulkCategories: '',
     selectedCategories: [],
     loading: false,
+    deletingCategories: false,
     error: '',
     success: ''
 };
@@ -68,6 +71,8 @@ const formReducer = (state: FormState, action: FormAction): FormState => {
             };
         case 'SET_LOADING':
             return { ...state, loading: action.payload };
+        case 'SET_DELETING':
+            return { ...state, deletingCategories: action.payload };
         case 'SET_ERROR':
             return { ...state, error: action.payload, success: '' };
         case 'SET_SUCCESS':
@@ -176,7 +181,7 @@ const AdminQuestionCategories = () => {
             if (response.ok) {
                 dispatch({ type: 'SET_SUCCESS', payload: 'Categories created successfully' });
                 dispatch({ type: 'RESET_FORM' });
-                fetchCategories();
+                await fetchCategories();
             } else {
                 dispatch({ type: 'SET_ERROR', payload: data.message || 'Failed to create categories' });
             }
@@ -190,7 +195,7 @@ const AdminQuestionCategories = () => {
 
     const handleDelete = async () => {
         if (!formState.selectedCategories.length) return;
-        dispatch({ type: 'SET_LOADING', payload: true });
+        dispatch({ type: 'SET_DELETING', payload: true });
         dispatch({ type: 'CLEAR_MESSAGES' });
 
         try {
@@ -207,7 +212,7 @@ const AdminQuestionCategories = () => {
             if (response.ok) {
                 dispatch({ type: 'SET_SUCCESS', payload: 'Categories deleted successfully' });
                 dispatch({ type: 'SET_SELECTED_CATEGORIES', payload: [] });
-                fetchCategories();
+                await fetchCategories();
             } else {
                 dispatch({ type: 'SET_ERROR', payload: data.message || 'Failed to delete categories' });
             }
@@ -215,7 +220,7 @@ const AdminQuestionCategories = () => {
             console.error('Error deleting categories:', error);
             dispatch({ type: 'SET_ERROR', payload: 'Failed to delete categories' });
         } finally {
-            dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_DELETING', payload: false });
         }
     };
 
@@ -291,54 +296,54 @@ const AdminQuestionCategories = () => {
                                 {formState.selectedCategories.length > 0 && (
                                     <button
                                         onClick={handleDelete}
-                                        disabled={formState.loading}
+                                        disabled={formState.deletingCategories}
                                         className="bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 disabled:opacity-50"
                                     >
-                                        {formState.loading ? 'Deleting...' : `Delete Selected (${formState.selectedCategories.length})`}
+                                        {formState.deletingCategories ? 'Deleting...' : `Delete Selected (${formState.selectedCategories.length})`}
                                     </button>
                                 )}
                             </div>
                             <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                <input
-                                                    type="checkbox"
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) {
-                                                            dispatch({ type: 'SELECT_ALL_CATEGORIES', payload: categories.map(cat => cat.id) });
-                                                        } else {
-                                                            dispatch({ type: 'SET_SELECTED_CATEGORIES', payload: [] });
-                                                        }
-                                                    }}
-                                                    checked={formState.selectedCategories.length === categories.length && categories.length > 0}
-                                                />
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Category Name
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Subject
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {categories.map((category) => (
-                                            <tr key={category.id}>
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="grid grid-cols-12 bg-gray-50 p-3 rounded-t-lg font-medium text-xs text-gray-500 uppercase">
+                                        <div className="col-span-1">
+                                            <input
+                                                type="checkbox"
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        dispatch({ type: 'SELECT_ALL_CATEGORIES', payload: categories.map(cat => cat.id) });
+                                                    } else {
+                                                        dispatch({ type: 'SET_SELECTED_CATEGORIES', payload: [] });
+                                                    }
+                                                }}
+                                                checked={formState.selectedCategories.length === categories.length && categories.length > 0}
+                                            />
+                                        </div>
+                                        <div className="col-span-5">Category Name</div>
+                                        <div className="col-span-6">Subject</div>
+                                    </div>
+                                    
+                                    {categories.length === 0 ? (
+                                        <div className="text-center py-4 text-gray-500">No categories found</div>
+                                    ) : (
+                                        categories.map((category) => (
+                                            <div 
+                                                key={category.id} 
+                                                className="grid grid-cols-12 p-3 border-b border-gray-200 hover:bg-gray-50 items-center"
+                                            >
+                                                <div className="col-span-1">
                                                     <input
                                                         type="checkbox"
                                                         checked={formState.selectedCategories.includes(category.id)}
                                                         onChange={() => dispatch({ type: 'TOGGLE_CATEGORY', payload: category.id })}
                                                     />
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">{category.name}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap">{category.subject.name}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                </div>
+                                                <div className="col-span-5 font-medium">{category.name}</div>
+                                                <div className="col-span-6 text-gray-600">{category.subject.name}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -13,6 +13,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         await connectToDatabase();
 
         const { categories } = req.body;
+        console.log('categories', categories);
 
         if (!Array.isArray(categories) || categories.length === 0) {
             return res.status(400).json({

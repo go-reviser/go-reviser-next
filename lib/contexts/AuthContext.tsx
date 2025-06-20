@@ -10,6 +10,7 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
+    token: string | null;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (name: string, email: string, password: string) => Promise<void>;
@@ -20,25 +21,31 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
-        // Check if user is logged in on mount
-        const token = localStorage.getItem('token');
-        const userData = localStorage.getItem('user');
-        
-        if (token && userData) {
-            try {
-                setUser(JSON.parse(userData));
-            } catch (error) {
-                console.error('Error parsing user data:', error);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+        const initializeAuth = () => {
+            const storedToken = localStorage.getItem('token');
+            const userData = localStorage.getItem('user');
+
+            if (storedToken && userData) {
+                try {
+                    const parsedUser = JSON.parse(userData);
+                    setUser(parsedUser);
+                    setToken(storedToken);
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                }
             }
-        }
-        
-        setLoading(false);
+            setLoading(false);
+        };
+
+        // Run initialization
+        initializeAuth();
     }, []);
 
     const signIn = async (email: string, password: string) => {
@@ -59,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
+            setToken(data.token);
             setUser(data.user);
             router.push('/dashboard'); // Redirect to dashboard after login
         } catch (error) {
@@ -92,12 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const signOut = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setToken(null);
         setUser(null);
         router.push('/signin');
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+        <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signOut }}>
             {children}
         </AuthContext.Provider>
     );

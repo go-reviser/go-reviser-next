@@ -4,27 +4,20 @@ import { NextApiResponse } from "next";
 import { withAuth, AuthenticatedRequest } from "@/lib/authMiddleware";
 import Topic from "@/models/Topic";
 import Module from "@/models/Module";
-import { Types } from "mongoose";
 
-type LeanSubject = {
-    _id: Types.ObjectId;
+// Response types (for API response)
+interface SyllabusResponse {
+    id: string;
     name: string;
-    subjectId: string;
-    modules?: LeanModule[];
-};
-
-type LeanModule = {
-    _id: Types.ObjectId;
-    name: string;
-    moduleId: string;
-    topics?: LeanTopic[];
-};
-
-type LeanTopic = {
-    _id: Types.ObjectId;
-    name: string;
-    topicId: string;
-};
+    modules: {
+        id: string;
+        name: string;
+        topics: {
+            id: string;
+            name: string;
+        }[];
+    }[];
+}
 
 async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     if (req.method !== 'GET') {
@@ -34,20 +27,41 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     try {
         await connectToDatabase();
 
-        const subjects = (await Subject.find().select('name subjectId').lean()) as unknown as LeanSubject[];
+        // Fetch all data with type assertions for Mongoose responses
+        const allSubjects = await Subject.find()
+            .select('name subjectId _id')
+            .lean();
 
-        for (const subject of subjects) {
-            const modules = (await Module.find({ subject: subject._id }).select('name moduleId').lean()) as unknown as LeanModule[];
+        const allModules = await Module.find()
+            .select('name moduleId subject _id')
+            .lean();
 
-            for (const moduleElem of modules) {
-                const topics = (await Topic.find({ moduleId: moduleElem.moduleId }).select('name topicId').lean()) as unknown as LeanTopic[];
-                moduleElem.topics = topics;
-            }
+        const allTopics = await Topic.find()
+            .select('name topicId module _id')
+            .lean();
 
-            subject.modules = modules;
-        }
+        // Transform the data to match our desired response format
+        const formattedSubjects: SyllabusResponse[] = allSubjects.map(subject => ({
+            id: subject.subjectId,
+            name: subject.name,
+            modules: allModules
+                .filter(module => module.subject?.toString() === subject._id?.toString())
+                .map(module => ({
+                    id: module.moduleId,
+                    name: module.name,
+                    topics: allTopics
+                        .filter(topic => topic.module?.toString() === module._id?.toString())
+                        .map(topic => ({
+                            id: topic.topicId,
+                            name: topic.name
+                        }))
+                }))
+        }));
 
-        return res.status(201).json({ message: 'Fetched whole syllabus of GATE CSE', subjects });
+        return res.status(200).json({
+            message: 'Fetched whole syllabus of GATE CSE',
+            subjects: formattedSubjects
+        });
     } catch (err) {
         console.error('Error fetching syllabus:', err);
         return res.status(500).json({ message: 'Internal server error' });

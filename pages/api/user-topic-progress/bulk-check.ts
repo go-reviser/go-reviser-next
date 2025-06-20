@@ -118,7 +118,7 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
 
         res.status(200).json({
             success: true,
-            data: results
+            data: results || []
         });
     } catch (error) {
         console.error('Error checking bulk progress completion:', error);

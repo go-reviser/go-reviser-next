@@ -3,6 +3,7 @@ import UserTopicProgress from '@/models/UserTopicProgress';
 import { connectToDatabase } from '@/lib/mongodb';
 import Topic from '@/models/Topic';
 import { AuthenticatedRequest, withAuth } from '@/lib/authMiddleware';
+import User from '@/models/User';
 
 /**
  * API handler for fetching a user's topic progress summary.
@@ -32,8 +33,8 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     await connectToDatabase();
 
     // Only allow GET requests for summary
-    if (req.method !== 'GET') {
-        res.setHeader('Allow', ['GET']);
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', ['POST']);
         return res.status(405).json({
             success: false,
             message: `Method ${req.method} Not Allowed`
@@ -41,23 +42,25 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     }
 
     try {
-        const { userId } = req.query;
+        const { userId } = req.body;
 
         if (userId != req.user?.userId)
             return res.status(401).json({ message: 'Unauthorized' });
+
+        const user = await User.findOne({ userId });
 
         // Get total count of topics for this user
         const totalTopicsCount: number = await Topic.countDocuments();
 
         // Get count by isCompleted
         const isCompletedCount: number = await UserTopicProgress.countDocuments({
-            userId: userId as string,
+            user: user._id.toString(),
             isCompleted: true
         });
 
         // Get count of topics marked for revision
         const toReviseCount: number = await UserTopicProgress.countDocuments({
-            userId: userId as string,
+            user: user._id.toString(),
             toRevise: true
         });
 

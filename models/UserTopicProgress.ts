@@ -41,7 +41,7 @@ const UserTopicProgressSchema: Schema = new Schema({
 }, { timestamps: true });
 
 // Create compound index for userId and topicId for faster lookups and enforcing uniqueness
-UserTopicProgressSchema.index({ user: 1, topic: 1 }, { unique: true });
+const UserTopicProgress = mongoose.models.UserTopicProgress || mongoose.model<IUserTopicProgress>('UserTopicProgress', UserTopicProgressSchema);
 
-export default mongoose.models.UserTopicProgress ||
-    mongoose.model<IUserTopicProgress>('UserTopicProgress', UserTopicProgressSchema);
+export default UserTopicProgress;
+export { UserTopicProgress }

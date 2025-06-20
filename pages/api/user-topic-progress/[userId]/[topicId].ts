@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { AuthenticatedRequest } from '@/lib/isAdminMiddleware';
 import { withAuth } from '@/lib/authMiddleware';
 import Topic from '@/models/Topic';
+import User from '@/models/User';
 
 /**
  * API handler for managing user topic progress
@@ -38,9 +39,6 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
     const { method } = req;
     const { userId, topicId } = req.query;
 
-    if (userId != req.user?.userId)
-        return res.status(401).json({ message: 'Unauthorized' });
-
     // Validate params
     if (!userId || !topicId) {
         return res.status(400).json({
@@ -49,18 +47,23 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
         });
     }
 
-    const topic = await Topic.findOne({ topicId })
+    const user = await User.findOne({ userId: userId as string });
+    const topic = await Topic.findOne({ topicId: topicId as string });
 
     if (!topic)
         return res.status(404).json({ success: false, message: 'Required topic does not exists.' });
+
+    if (!user || (user?.userId != userId && user?.role != 'admin')) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
 
     switch (method) {
         case 'GET':
             try {
                 // Find the specific user topic progress
                 const progress = await UserTopicProgress.findOne({
-                    userId: userId as string,
-                    topicId: topicId as string
+                    user: user._id,
+                    topic: topic._id
                 }).lean();
 
                 if (!progress) {
@@ -87,11 +90,13 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
                 // Find and update the user topic progress
                 const updatedProgress = await UserTopicProgress.findOneAndUpdate(
                     {
-                        userId: userId as string,
-                        topicId: topicId as string
+                        user: user._id,
+                        topic: topic._id
                     },
                     {
                         $set: {
+                            user: user._id,
+                            topic: topic._id,
                             isCompleted: toRevise || isCompleted,
                             toRevise: toRevise
                         }
@@ -100,7 +105,13 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
                 ).lean();
 
                 res.status(200).json({
-                    success: true, data: { ...updatedProgress }
+                    success: true,
+                    updatedProgress: {
+                        progressId: updatedProgress?.progressId,
+                        topicId: topic.topicId,
+                        isCompleted: updatedProgress?.isCompleted,
+                        toRevise: updatedProgress?.toRevise
+                    }
                 });
             } catch (error) {
                 console.error('Error updating user topic progress:', error);
@@ -115,8 +126,8 @@ async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
             try {
                 // Find and delete the user topic progress
                 const deletedProgress = await UserTopicProgress.findOneAndDelete({
-                    userId: userId as string,
-                    topicId: topicId as string
+                    user: user._id,
+                    topic: topic._id
                 });
 
                 if (!deletedProgress) {

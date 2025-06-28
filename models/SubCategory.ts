@@ -1,11 +1,11 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { IQuestionCategory } from './QuestionCategory';
 
 export interface ISubCategory extends Document {
     subCategoryId: string;
     name: string;
-    questionCategoryIds: IQuestionCategory[];
+    questionCategories: Types.ObjectId[] | IQuestionCategory[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -23,7 +23,7 @@ const subCategorySchema = new Schema<ISubCategory>(
             required: true,
             trim: true
         },
-        questionCategoryIds: [{
+        questionCategories: [{
             type: Schema.Types.ObjectId,
             ref: 'QuestionCategory',
             required: true
@@ -37,4 +37,15 @@ const subCategorySchema = new Schema<ISubCategory>(
 // Create a compound index for unique name
 subCategorySchema.index({ name: 1 }, { unique: true });
 
-export const SubCategory = model<ISubCategory>('SubCategory', subCategorySchema);
+// Ensure questionCategories array has unique values
+subCategorySchema.path('questionCategories').validate(function (value: Types.ObjectId[]) {
+    // Convert ObjectIds to strings for comparison
+    const stringIds = value.map(id => id.toString());
+    // Check if the array has duplicates by comparing with Set size
+    return stringIds.length === new Set(stringIds).size;
+}, 'questionCategories must contain unique values');
+
+const SubCategory: Model<ISubCategory> = mongoose.models.SubCategory || mongoose.model<ISubCategory>('SubCategory', subCategorySchema); 
+
+export default SubCategory;
+export {SubCategory};

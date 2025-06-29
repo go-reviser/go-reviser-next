@@ -8,7 +8,7 @@ interface User {
     isAdmin: boolean;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
     user: User | null;
     token: string | null;
     loading: boolean;

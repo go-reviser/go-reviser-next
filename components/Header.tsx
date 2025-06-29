@@ -2,15 +2,24 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { AuthContextType } from '@/lib/contexts/AuthContext';
 
 const Header = () => {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, signOut }: AuthContextType = useAuth();
   const adminMenuRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => {
+    return router.pathname === path ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600';
+  };
+
+  const isAdminActive = (path: string) => {
+    return router.pathname === path ? 'bg-gray-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100';
+  };
+
+  const isMobileAdminActive = (path: string) => {
     return router.pathname === path ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600';
   };
 
@@ -36,6 +45,104 @@ const Header = () => {
     };
   }, []);
 
+  // Navigation links data
+  const navLinks = [
+    { href: '/', label: 'Home', requireAuth: false },
+    { href: '/dashboard', label: 'Dashboard', requireAuth: true },
+    { href: '/about', label: 'About', requireAuth: false },
+    { href: '/contact', label: 'Contact', requireAuth: false },
+  ];
+
+  // Admin links data
+  const adminLinks = [
+    { href: '/admin/subjects', label: 'Subjects' },
+    { href: '/admin/question-categories', label: 'Question Categories' },
+    { href: '/admin/sub-categories', label: 'Sub Categories' },
+  ];
+
+  // Navigation Links Component
+  const NavLinks = ({ mobile = false, onClickLink = () => { } }) => (
+    <>
+      {navLinks.map((link) => (
+        (!link.requireAuth || (link.requireAuth && user)) && (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={`${mobile ? 'block px-3 py-2 rounded-md' : ''} ${isActive(link.href)} transition-colors duration-200`}
+            onClick={onClickLink}
+          >
+            {link.label}
+          </Link>
+        )
+      ))}
+    </>
+  );
+
+  // Admin Links Component
+  const AdminLinks = ({ mobile = false, onClickLink = () => { } }) => (
+    <>
+      {adminLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className={`${mobile
+            ? `block px-3 py-2 pl-6 rounded-md ${isMobileAdminActive(link.href)}`
+            : `block px-4 py-2 text-sm ${isAdminActive(link.href)}`
+            } transition-colors duration-200`}
+          onClick={onClickLink}
+        >
+          {link.label}
+        </Link>
+      ))}
+    </>
+  );
+
+  // Auth UI Component
+  const AuthUI = ({ mobile = false, onSignOut = () => { } }) => (
+    <>
+      {user ? (
+        <>
+          <span className={`${mobile ? 'block px-3 py-2' : ''} text-gray-700`}>Welcome, {user.name}</span>
+          <button
+            onClick={() => {
+              signOut();
+              onSignOut();
+            }}
+            className={`${mobile
+              ? 'block w-full text-left px-3 py-2 rounded-md'
+              : 'px-4 py-2 rounded-md'
+              } bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-200`}
+          >
+            Sign Out
+          </button>
+        </>
+      ) : (
+        <>
+          <Link
+            href="/signin"
+            className={`${mobile
+              ? 'block px-3 py-2 rounded-md'
+              : 'px-4 py-2'
+              } text-gray-600 hover:text-blue-600 transition-colors duration-200`}
+            onClick={onSignOut}
+          >
+            Sign In
+          </Link>
+          <Link
+            href="/signup"
+            className={`${mobile
+              ? 'block px-3 py-2 rounded-md'
+              : 'px-4 py-2'
+              } bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200`}
+            onClick={onSignOut}
+          >
+            Sign Up
+          </Link>
+        </>
+      )}
+    </>
+  );
+
   return (
     <header className="bg-white shadow-md w-full">
       <nav className="container mx-auto px-6 py-4">
@@ -47,20 +154,7 @@ const Header = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/" className={`${isActive('/')} transition-colors duration-200`}>
-              Home
-            </Link>
-            {user && (
-              <Link href="/dashboard" className={`${isActive('/dashboard')} transition-colors duration-200`}>
-                Dashboard
-              </Link>
-            )}
-            <Link href="/about" className={`${isActive('/about')} transition-colors duration-200`}>
-              About
-            </Link>
-            <Link href="/contact" className={`${isActive('/contact')} transition-colors duration-200`}>
-              Contact
-            </Link>
+            <NavLinks />
 
             {/* Admin Dropdown Menu */}
             {user?.isAdmin && (
@@ -85,30 +179,7 @@ const Header = () => {
                 </button>
                 {isAdminMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                    <Link
-                      href="/admin/subjects"
-                      className={`block px-4 py-2 text-sm ${router.pathname === '/admin/subjects' ? 'bg-gray-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      onClick={() => setIsAdminMenuOpen(false)}
-                    >
-                      Subjects
-                    </Link>
-                    <Link
-                      href="/admin/question-categories"
-                      className={`block px-4 py-2 text-sm ${router.pathname === '/admin/question-categories' ? 'bg-gray-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      onClick={() => setIsAdminMenuOpen(false)}
-                    >
-                      Question Categories
-                    </Link>
-                    <Link
-                      href="/admin/sub-categories"
-                      className={`block px-4 py-2 text-sm ${router.pathname === '/admin/sub-categories' ? 'bg-gray-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      onClick={() => setIsAdminMenuOpen(false)}
-                    >
-                      Sub Categories
-                    </Link>
+                    <AdminLinks onClickLink={() => setIsAdminMenuOpen(false)} />
                   </div>
                 )}
               </div>
@@ -116,32 +187,7 @@ const Header = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            {user ? (
-              <>
-                <span className="text-gray-700">Welcome, {user.name}</span>
-                <button
-                  onClick={signOut}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/signin"
-                  className="px-4 py-2 text-gray-600 hover:text-blue-600 transition-colors duration-200"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/signup"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
+            <AuthUI />
           </div>
 
           {/* Mobile menu button */}
@@ -186,99 +232,17 @@ const Header = () => {
             } md:hidden overflow-hidden transition-all duration-300 ease-in-out`}
         >
           <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link
-              href="/"
-              className={`block px-3 py-2 rounded-md ${isActive('/')} transition-colors duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Home
-            </Link>
-            {user && (
-              <Link
-                href="/dashboard"
-                className={`block px-3 py-2 rounded-md ${isActive('/dashboard')} transition-colors duration-200`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-            )}
-            <Link
-              href="/about"
-              className={`block px-3 py-2 rounded-md ${isActive('/about')} transition-colors duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              About
-            </Link>
-            <Link
-              href="/contact"
-              className={`block px-3 py-2 rounded-md ${isActive('/contact')} transition-colors duration-200`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Contact
-            </Link>
+            <NavLinks mobile onClickLink={() => setIsMobileMenuOpen(false)} />
 
             {/* Mobile Admin Menu */}
             {user?.isAdmin && (
               <>
                 <div className="px-3 py-2 font-medium text-gray-700">Admin Pages:</div>
-                <Link
-                  href="/admin/subjects"
-                  className={`block px-3 py-2 pl-6 rounded-md ${router.pathname === '/admin/subjects' ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
-                    } transition-colors duration-200`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Subjects
-                </Link>
-                <Link
-                  href="/admin/question-categories"
-                  className={`block px-3 py-2 pl-6 rounded-md ${router.pathname === '/admin/question-categories' ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
-                    } transition-colors duration-200`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Question Categories
-                </Link>
-                <Link
-                  href="/admin/sub-categories"
-                  className={`block px-3 py-2 pl-6 rounded-md ${router.pathname === '/admin/sub-categories' ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
-                    } transition-colors duration-200`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Sub Categories
-                </Link>
+                <AdminLinks mobile onClickLink={() => setIsMobileMenuOpen(false)} />
               </>
             )}
 
-            {user ? (
-              <>
-                <span className="block px-3 py-2 text-gray-700">Welcome, {user.name}</span>
-                <button
-                  onClick={() => {
-                    signOut();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="block w-full text-left px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/signin"
-                  className="block px-3 py-2 rounded-md text-gray-600 hover:text-blue-600 transition-colors duration-200"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/signup"
-                  className="block px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-200"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
+            <AuthUI mobile onSignOut={() => setIsMobileMenuOpen(false)} />
           </div>
         </div>
       </nav>

@@ -3,6 +3,7 @@ import { QuestionCategory } from '@/models/QuestionCategory';
 import { SubCategory } from '@/models/SubCategory';
 import { Question } from '@/models/Question';
 import { Types, Document } from 'mongoose';
+import mongoose from 'mongoose';
 
 interface QuestionBaseData {
     title: string;
@@ -72,6 +73,16 @@ export async function processBulkQuestions(
             continue;
         }
 
+        // Get subject for the category
+        const subject = await mongoose.model('Subject').findById(questionCategory.subject);
+        if (!subject) {
+            errors.push({
+                error: `Subject not found for category '${category}'`,
+                link
+            });
+            continue;
+        }
+
         // Get tag IDs
         const tagIds: Types.ObjectId[] = [];
         if (Array.isArray(tags) && tags.length > 0) {
@@ -92,7 +103,7 @@ export async function processBulkQuestions(
             ]
         });
 
-        if(!subCategory){
+        if (!subCategory) {
             errors.push({
                 error: `Subcategory not found for question '${title}'`,
                 link
@@ -123,7 +134,10 @@ export async function processBulkQuestions(
             title,
             content,
             subCategory: subCategory?._id,
+            subCategoryName: subCategory?.name,
             questionCategory: questionCategory._id,
+            questionCategoryName: questionCategory.name,
+            subjectName: subject.name,
             tags: tagIds,
             isActive: isActive || true,
             link,

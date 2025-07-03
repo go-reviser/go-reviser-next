@@ -92,10 +92,31 @@ export async function processBulkQuestions(
             ]
         });
 
+        if(!subCategory){
+            errors.push({
+                error: `Subcategory not found for question '${title}'`,
+                link
+            });
+            continue;
+        }
+
         // Determine question type
         const isMSQ = tags?.includes('multiple-selects');
         const isNAT = tags?.includes('numerical-answers');
         const isDescriptive = tags?.includes('descriptive');
+
+        // Extract year from tags if available
+        let year = null;
+        if (Array.isArray(tags)) {
+            for (const tag of tags) {
+                // Extract first 4-digit number from the tag
+                const match = tag.match(/\d{4}/);
+                if (match) {
+                    year = parseInt(match[0]);
+                    break;
+                }
+            }
+        }
 
         // Create question object
         const questionObj: Record<string, unknown> = {
@@ -108,6 +129,17 @@ export async function processBulkQuestions(
             link,
             questionNumber: baseQuestionNumber + i * 3 + Math.floor(Math.random() * 3)
         };
+
+        // Check if year was found
+        if (year) {
+            questionObj.year = year;
+        } else {
+            errors.push({
+                error: `No year tag (containing a 4-digit number) found for question '${title}'`,
+                link
+            });
+            continue; // Skip this question and continue with the next one
+        }
 
         // Set answer based on type
         let error = null;

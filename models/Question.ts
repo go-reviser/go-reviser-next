@@ -12,6 +12,7 @@ export interface IQuestion extends Document {
     subCategory: Types.ObjectId | ISubCategory;
     questionCategory: Types.ObjectId | IQuestionCategory;
     tags: Types.Array<Types.ObjectId | IQuestionTag>;
+    year?: number; // Added year attribute
     // For MCQ (single answer)
     correctAnswer?: string;
     // For MSQ (multiple answers)
@@ -58,17 +59,21 @@ const questionSchema = new Schema<IQuestion>(
         subCategory: {
             type: Schema.Types.ObjectId,
             ref: 'SubCategory',
-            require: true
+            required: true
         },
         questionCategory: {
             type: Schema.Types.ObjectId,
             ref: 'QuestionCategory',
-            require: true
+            required: true
         },
         tags: [{
             type: Schema.Types.ObjectId,
             ref: 'QuestionTag'
         }],
+        year: {
+            type: Number,
+            required: true
+        },
         // For MCQ (single answer)
         correctAnswer: {
             type: String,
@@ -119,6 +124,38 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
             next(new Error('The specified questionCategory does not match the subcategory\'s category'));
             return;
         }
+    }
+    next();
+});
+
+// Extract year from tags
+questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) => void) {
+    if (this.tags && this.tags.length > 0) {
+        // Get all tag names
+        const QuestionTag = model('QuestionTag');
+        const tagDocs = await QuestionTag.find({ _id: { $in: this.tags } });
+        const tagNames = tagDocs.map(tag => tag.name);
+        
+        let yearFound = false;
+        // Look for a tag containing a 4-digit number
+        for (const tagName of tagNames) {
+            // Extract first 4-digit number from the tag
+            const match = tagName.match(/\d{4}/);
+            if (match) {
+                this.year = parseInt(match[0]);
+                yearFound = true;
+                break;
+            }
+        }
+        
+        // If no year found, throw an error
+        if (!yearFound) {
+            next(new Error('No year tag found. Question must have a tag containing a 4-digit number.'));
+            return;
+        }
+    } else {
+        next(new Error('Question must have at least one tag with a year.'));
+        return;
     }
     next();
 });

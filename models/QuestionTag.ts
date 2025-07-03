@@ -1,11 +1,12 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, Document, Types, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
-import { IQuestionCategory } from './QuestionCategory';
+import { IQuestion } from './Question';
+import mongoose from 'mongoose';
 
 export interface IQuestionTag extends Document {
     questionTagId: string;
     name: string;
-    questionCategoryId: Types.ObjectId | IQuestionCategory;
+    questions: Types.Array<Types.ObjectId | IQuestion>;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -24,15 +25,18 @@ const questionTagSchema = new Schema<IQuestionTag>(
             unique: true,
             trim: true
         },
-        questionCategoryId: {
+        questions: [{
             type: Schema.Types.ObjectId,
-            ref: 'QuestionCategory',
+            ref: 'Question',
             required: true
-        }
+        }]
     },
     {
         timestamps: true
     }
 );
 
-export const QuestionTag = model<IQuestionTag>('QuestionTag', questionTagSchema); 
+const QuestionTag: Model<IQuestionTag> = mongoose.models.QuestionTag || mongoose.model<IQuestionTag>('QuestionTag', questionTagSchema);
+
+export default QuestionTag;
+export { QuestionTag };

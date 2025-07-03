@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { IQuestionTag } from './QuestionTag';
 import { ISubCategory } from './SubCategory';
@@ -6,10 +6,11 @@ import { IQuestionCategory } from './QuestionCategory';
 
 export interface IQuestion extends Document {
     questionId: string;
+    questionNumber: number;
     title: string;
     content: string;
-    subCategoryId: Types.ObjectId | ISubCategory;
-    questionCategoryId: Types.ObjectId | IQuestionCategory;
+    subCategory: Types.ObjectId | ISubCategory;
+    questionCategory: Types.ObjectId | IQuestionCategory;
     tags: Types.Array<Types.ObjectId | IQuestionTag>;
     // For MCQ (single answer)
     correctAnswer?: string;
@@ -22,6 +23,7 @@ export interface IQuestion extends Document {
         min: number;
         max: number;
     };
+    link?: string;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -39,6 +41,10 @@ const questionSchema = new Schema<IQuestion>(
             unique: true,
             required: true,
         },
+        questionNumber: {
+            type: Number,
+            required: true
+        },
         title: {
             type: String,
             required: true,
@@ -49,13 +55,15 @@ const questionSchema = new Schema<IQuestion>(
             required: true,
             trim: true
         },
-        subCategoryId: {
+        subCategory: {
             type: Schema.Types.ObjectId,
-            ref: 'SubCategory'
+            ref: 'SubCategory',
+            require: true
         },
-        questionCategoryId: {
+        questionCategory: {
             type: Schema.Types.ObjectId,
-            ref: 'QuestionCategory'
+            ref: 'QuestionCategory',
+            require: true
         },
         tags: [{
             type: Schema.Types.ObjectId,
@@ -63,24 +71,33 @@ const questionSchema = new Schema<IQuestion>(
         }],
         // For MCQ (single answer)
         correctAnswer: {
-            type: String
+            type: String,
+            default: null
         },
         // For MSQ (multiple answers)
         correctAnswers: {
-            type: [String]
+            type: [String],
+            default: null
         },
         // For NAT (numerical answer)
         numericalAnswer: {
-            type: Number
+            type: Number,
+            default: null
         },
         // For NAT with range
         numericalAnswerRange: {
             min: {
-                type: Number
+                type: Number,
+                default: null
             },
             max: {
-                type: Number
+                type: Number,
+                default: null
             }
+        },
+        link: {
+            type: String,
+            required: true
         },
         isActive: {
             type: Boolean,
@@ -92,14 +109,14 @@ const questionSchema = new Schema<IQuestion>(
     }
 );
 
-// Add validation to ensure the questionCategoryId matches the subcategory's category
+// Add validation to ensure the questionCategory matches the subcategory's category
 questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) => void) {
-    if (this.subCategoryId && this.questionCategoryId) {
+    if (this.subCategory && this.questionCategory) {
         const SubCategory = model('SubCategory');
-        const subCategory = await SubCategory.findById(this.subCategoryId);
+        const subCategory = await SubCategory.findById(this.subCategory);
 
-        if (subCategory && !subCategory.questionCategoryIds.some((category: IQuestionCategory) => category.toString() === this.questionCategoryId.toString())) {
-            next(new Error('The specified questionCategoryId does not match the subcategory\'s category'));
+        if (subCategory && !subCategory.questionCategories.some((category: IQuestionCategory) => category.toString() === this.questionCategory.toString())) {
+            next(new Error('The specified questionCategory does not match the subcategory\'s category'));
             return;
         }
     }
@@ -165,8 +182,8 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
                 next(new Error('NAT range must have both min and max values'));
                 return;
             }
-            if (this.numericalAnswerRange.min >= this.numericalAnswerRange.max) {
-                next(new Error('NAT range min must be less than max'));
+            if (this.numericalAnswerRange.min > this.numericalAnswerRange.max) {
+                next(new Error('NAT range min must be less than or equal to max'));
                 return;
             }
         }
@@ -188,9 +205,12 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
 // Handle question count decrement using post middleware
 questionSchema.post('deleteOne', { document: true, query: false }, async function (this: IQuestion) {
     await model('SubCategory').updateOne(
-        { _id: this.subCategoryId },
+        { _id: this.subCategory },
         { $inc: { questionCount: -1 } }
     );
 });
 
-export const Question = model<IQuestion>('Question', questionSchema); 
+const Question: Model<IQuestion> = mongoose.models.Question || mongoose.model<IQuestion>('Question', questionSchema);
+
+export default Question;
+export { Question };

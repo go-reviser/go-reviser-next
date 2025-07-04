@@ -8,9 +8,11 @@ import Topic from "./Topic";
 import User from "./User";
 import UserQuestionProgress from "./UserQuestionProgress";
 import UserTopicProgress from "./UserTopicProgress";
+import ExamBranches from "./ExamBranches";
 
 const connectToAll = async () => {
     await Promise.all([
+        ExamBranches.find({}),
         Module.find({}),
         Question.find({}),
         QuestionCategory.find({}),

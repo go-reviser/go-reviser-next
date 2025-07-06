@@ -1,5 +1,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
+import { useApi } from '@/hooks/useApi';
+
+interface ResetPasswordResponse {
+  success: boolean;
+  message?: string;
+}
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -9,6 +16,7 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const { fetchApi } = useApi();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,19 +35,15 @@ export default function ResetPassword() {
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/users/reset-password', {
+      const data = await fetchApi<ResetPasswordResponse>('/api/users/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, token, password }),
+        body: { email, token, password }
       });
-      const data = await res.json();
-      if (res.ok) {
+
+      if (data)
         setSuccess(true);
-      } else {
-        setError(data.message || 'Something went wrong.');
-      }
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,7 @@ export default function ResetPassword() {
         <h2 className="text-2xl font-bold text-center text-gray-900 mb-6">Reset Password</h2>
         {success ? (
           <div className="text-green-600 text-center">
-            Your password has been reset successfully. You can now <a href="/signin" className="text-blue-500 underline">sign in</a>.
+            Your password has been reset successfully. You can now <Link href="/signin" className="text-blue-500 underline">sign in</Link>.
           </div>
         ) : (
           <form className="space-y-6" onSubmit={handleSubmit}>

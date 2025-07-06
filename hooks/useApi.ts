@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useAuthUtils } from './useAuth';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface ApiOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -8,6 +9,11 @@ interface ApiOptions {
 
 export const useApi = () => {
     const { checkAndGetToken } = useAuthUtils();
+    const { signOut } = useAuth();
+
+    const handleUnauthorized = useCallback(() => {
+        signOut();
+    }, [signOut]);
 
     const fetchApi = useCallback(async <T>(url: string, options: ApiOptions = {}): Promise<T | null> => {
         const token = checkAndGetToken();
@@ -27,6 +33,11 @@ export const useApi = () => {
                 ...(body ? { body: JSON.stringify(body) } : {})
             });
 
+            if (response.status === 401) {
+                handleUnauthorized();
+                return null;
+            }
+
             const data = await response.json();
 
             if (!response.ok) {
@@ -38,7 +49,7 @@ export const useApi = () => {
             console.error(`Error fetching ${url}:`, error);
             throw error;
         }
-    }, [checkAndGetToken]);
+    }, [checkAndGetToken, handleUnauthorized]);
 
     return { fetchApi };
 }; 

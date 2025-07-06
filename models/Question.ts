@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { IQuestionTag } from './QuestionTag';
 import { ISubCategory } from './SubCategory';
 import { IQuestionCategory } from './QuestionCategory';
+import { IExamBranches } from './ExamBranches';
 
 export interface IQuestion extends Document {
     questionId: string;
@@ -15,6 +16,7 @@ export interface IQuestion extends Document {
     questionCategoryName: string; // Added field for category name
     subjectName: string; // Added field for subject name
     tags: Types.Array<Types.ObjectId | IQuestionTag>;
+    examBranches: Types.Array<Types.ObjectId | IExamBranches>;
     year?: number; // Added year attribute
     // For MCQ (single answer)
     correctAnswer?: string;
@@ -84,6 +86,10 @@ const questionSchema = new Schema<IQuestion>(
         tags: [{
             type: Schema.Types.ObjectId,
             ref: 'QuestionTag'
+        }],
+        examBranches: [{
+            type: Schema.Types.ObjectId,
+            ref: 'ExamBranches'
         }],
         year: {
             type: Number,
@@ -196,6 +202,9 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
         const tagNames = tagDocs.map(tag => tag.name);
 
         let yearFound = false;
+        let yearTag = '';
+        let yearValue = '';
+
         // Look for a tag containing a 4-digit number
         for (const tagName of tagNames) {
             // Extract first 4-digit number from the tag
@@ -203,6 +212,8 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
             if (match) {
                 this.year = parseInt(match[0]);
                 yearFound = true;
+                yearTag = tagName;
+                yearValue = match[0];
                 break;
             }
         }
@@ -210,6 +221,25 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
         // If no year found, throw an error
         if (!yearFound) {
             next(new Error('No year tag found. Question must have a tag containing a 4-digit number.'));
+            return;
+        }
+
+        // Validate that the year tag exists in one of the examBranches' examTagNames
+        if (this.examBranches && this.examBranches.length > 0) {
+            const ExamBranches = model('ExamBranches');
+            const examBranchDocs = await ExamBranches.find({ _id: { $in: this.examBranches } });
+
+            // Check if the year tag exists in any of the exam branches' examTagNames
+            const yearTagExistsInExamBranch = examBranchDocs.some(branch =>
+                branch.examTagNames.some((examTag: string) => examTag.includes(yearValue))
+            );
+
+            if (!yearTagExistsInExamBranch) {
+                next(new Error(`The year tag "${yearTag}" must exist in at least one of the selected exam branches' tag names.`));
+                return;
+            }
+        } else {
+            next(new Error('Question must be associated with at least one exam branch.'));
             return;
         }
     } else {
@@ -314,6 +344,7 @@ questionSchema.index({ subjectName: 1 });
 questionSchema.index({ questionCategoryName: 1 });
 questionSchema.index({ subCategoryName: 1 });
 questionSchema.index({ year: 1 });
+questionSchema.index({ examBranches: 1 });
 
 const Question: Model<IQuestion> = mongoose.models.Question || mongoose.model<IQuestion>('Question', questionSchema);
 

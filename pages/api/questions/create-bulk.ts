@@ -4,6 +4,7 @@ import { withAuth } from '@/lib/authMiddleware';
 import { isAdmin } from '@/lib/isAdminMiddleware';
 import { processBulkQuestions, createBulkQuestions } from '@/lib/questionUtils';
 import Question from '@/models/Question';
+import ExamBranches from '@/models/ExamBranches';
 
 interface QuestionData {
     title: string;
@@ -23,8 +24,19 @@ interface SuccessResult {
     link?: string;
 }
 
+interface AlreadyExistsResult {
+    alreadyExists: string;
+    link?: string;
+}
+
+interface InActiveTagsResult {
+    inActiveTags: string[];
+    link?: string;
+}
+
 interface ErrorResult {
-    error: string;
+    error?: string;
+    yearError?: string;
     link?: string;
 }
 
@@ -45,47 +57,70 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     try {
         await connectToDatabase();
 
-        const { questions } = req.body;
+        const { questions, examBranchNames } = req.body;
 
-        if (!questions || typeof questions !== 'object' || Object.keys(questions).length === 0) {
+        if (!questions || typeof questions !== 'object' || Object.keys(questions).length === 0 || !examBranchNames) {
             return res.status(400).json({
-                message: 'Questions must be provided as a non-empty object'
+                message: 'Questions must be provided as a non-empty object and examBranchNames must be provided.'
+            });
+        }
+
+        const examBranches = await ExamBranches.find({ name: { $in: examBranchNames } });
+
+        if (examBranches.length === 0 || examBranches.length !== examBranchNames.length) {
+            return res.status(400).json({
+                message: 'Exam branches not found'
             });
         }
 
         const results = {
             success: [] as SuccessResult[],
             errors: [] as ErrorResult[],
-            alreadyExists: [] as ErrorResult[]
+            alreadyExists: [] as AlreadyExistsResult[],
+            inActiveTagsResults: [] as InActiveTagsResult[]
         };
 
         // Convert object of questions to array for bulk processing
         const questionsArray: QuestionData[] = [];
 
-        // First check for duplicate links
-        for (const key in questions) {
-            const questionData = questions[key];
-            const { link } = questionData as QuestionData;
+        const questionEntries = Object.entries(questions);
+        const links = questionEntries
+            .map(([, q]) => (q as QuestionData).link)
+            .filter(link => !!link);
 
-            if (link && await Question.findOne({ link })) {
+        const existingQuestions = await Question.find({ link: { $in: links } }).select('link');
+        const existingLinks = new Set(existingQuestions.map(q => q.link));
+
+        // Separate existing and new questions
+        for (const [, q] of questionEntries) {
+            const questionData = q as QuestionData;
+            const { link } = questionData;
+
+            if (link && existingLinks.has(link)) {
                 results.alreadyExists.push({
-                    error: 'Question with this link already exists',
+                    alreadyExists: 'Question with this link already exists',
                     link
                 });
             } else {
-                questionsArray.push(questionData as QuestionData);
+                questionsArray.push(questionData);
             }
         }
 
+        console.log("Going to process questions in bulk");
+
         // Process questions in bulk
-        const { processedQuestions, errors } = await processBulkQuestions(questionsArray);
+        const { processedQuestions, errors, inActiveTagsErrors } = await processBulkQuestions(questionsArray, examBranches);
 
         // Add any errors to the results
         results.errors.push(...errors);
+        results.inActiveTagsResults.push(...inActiveTagsErrors);
+        console.log("Errors in bulk processing");
 
         // Create questions in bulk
         if (processedQuestions.length > 0) {
             const newQuestions = await createBulkQuestions(processedQuestions);
+
+            console.log("Created questions in bulk");
 
             // Add successful questions to results
             for (const question of newQuestions) {
@@ -99,13 +134,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             }
         }
 
+        console.log("Questions processing completed");
+
         return res.status(201).json({
             message: 'Questions processing completed',
             summary: {
                 total: Object.keys(questions).length,
                 successful: results.success.length,
                 failed: results.errors.length,
-                alreadyExists: results.alreadyExists.length
+                alreadyExists: results.alreadyExists.length,
+                inActiveTags: results.inActiveTagsResults.length
             },
             results
         });

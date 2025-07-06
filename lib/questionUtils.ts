@@ -4,6 +4,7 @@ import { SubCategory } from '@/models/SubCategory';
 import { Question } from '@/models/Question';
 import { Types, Document } from 'mongoose';
 import mongoose from 'mongoose';
+import { IExamBranches } from '@/models/ExamBranches';
 
 interface QuestionBaseData {
     title: string;
@@ -23,13 +24,23 @@ export interface BulkQuestionData {
 }
 
 export async function processBulkQuestions(
-    questionsData: QuestionBaseData[]
+    questionsData: QuestionBaseData[], examBranches: IExamBranches[]
 ): Promise<{
     processedQuestions: BulkQuestionData[];
-    errors: { error: string; link?: string }[];
+    errors: { error?: string; yearError?: string; link?: string }[];
+    inActiveTagsErrors: { inActiveTags: string[]; link?: string }[];
 }> {
+    const examBranchTags: Record<string, string[]> = {};
+
+    for (const examBranch of examBranches)
+        examBranchTags[examBranch.name] = examBranch.examTagNames;
+
     const processedQuestions: BulkQuestionData[] = [];
-    const errors: { error: string; link?: string }[] = [];
+    const errors: { error?: string; yearError?: string; link?: string }[] = [];
+    let inActiveTags: string[] = [];
+    const inActiveTagsErrors: { inActiveTags: string[]; link?: string }[] = [];
+
+    console.log("Getting categories and tags");
 
     // Get all categories and tags first to minimize DB calls
     const categoryNames = [...new Set(questionsData.map(q => q.category.toLowerCase().split(' ').join('-')))];
@@ -43,6 +54,8 @@ export async function processBulkQuestions(
     const existingTagNames = existingTags.map(tag => tag.name);
     const missingTagNames = allTagNames.filter(name => !existingTagNames.includes(name));
 
+    console.log("Getting missing tags");
+
     let newTags: Document[] = [];
     if (missingTagNames.length > 0) {
         newTags = await QuestionTag.insertMany(
@@ -50,14 +63,22 @@ export async function processBulkQuestions(
         );
     }
 
+    console.log("Combining existing and new tags");
+
     // Combine existing and new tags
     const allTags = [...existingTags, ...newTags];
+
+    console.log("Getting question count");
 
     // Get question count once for numbering
     const baseQuestionNumber = 100000 + (await Question.countDocuments()) * 3;
 
     // Process each question
+    //TODO: We need to optimize it
     for (let i = 0; i < questionsData.length; i++) {
+        if (i % 50 == 0)
+            console.log("Processing question", i, "of", questionsData.length);
+
         const data = questionsData[i];
         const { title, content, category, tags, answer, isActive, link } = data;
 
@@ -92,16 +113,33 @@ export async function processBulkQuestions(
                     tagIds.push(tag._id as Types.ObjectId);
                 }
             }
+
+            inActiveTags = tags.filter(tag => !(allTags.find(t => (t as IQuestionTag).name === tag)?.isActive));
+            if (inActiveTags.length > 0) {
+                inActiveTagsErrors.push({
+                    inActiveTags,
+                    link
+                });
+                continue;
+            }
         }
 
         // Find subcategory
-        const subCategory = await SubCategory.findOne({
+        let subCategory = await SubCategory.findOne({
             $and: [
                 { name: { $in: tags } },
                 { name: { $ne: questionCategory.name } },
                 { questionCategories: { $in: questionCategory._id } }
             ]
         });
+
+        if (!subCategory)
+            subCategory = await SubCategory.findOne({
+                $and: [
+                    { name: { $in: questionCategory.name } },
+                    { questionCategories: { $in: questionCategory._id } }
+                ]
+            });
 
         if (!subCategory) {
             errors.push({
@@ -123,8 +161,10 @@ export async function processBulkQuestions(
                 // Extract first 4-digit number from the tag
                 const match = tag.match(/\d{4}/);
                 if (match) {
-                    year = parseInt(match[0]);
-                    break;
+                    if (examBranchTags['gatecse'].includes(tag)) {
+                        year = parseInt(match[0]);
+                        break;
+                    }
                 }
             }
         }
@@ -149,7 +189,7 @@ export async function processBulkQuestions(
             questionObj.year = year;
         } else {
             errors.push({
-                error: `No year tag (containing a 4-digit number) found for question '${title}'`,
+                yearError: `No year tag (containing a 4-digit number) found for question '${title}'`,
                 link
             });
             continue; // Skip this question and continue with the next one
@@ -193,11 +233,7 @@ export async function processBulkQuestions(
                 questionObj.correctAnswers = Array.isArray(answer) ? answer : null;
             }
         } else {
-            if (!answer) {
-                error = 'Single choice questions require a correct answer';
-            } else {
-                questionObj.correctAnswer = answer as string || null;
-            }
+            questionObj.correctAnswer = answer as string || "N/A";
         }
 
         if (error) {
@@ -212,7 +248,9 @@ export async function processBulkQuestions(
         });
     }
 
-    return { processedQuestions, errors };
+    console.log("Processed questions in bulk");
+
+    return { processedQuestions, errors, inActiveTagsErrors };
 }
 
 export async function createBulkQuestions(processedQuestions: BulkQuestionData[]) {
@@ -220,9 +258,13 @@ export async function createBulkQuestions(processedQuestions: BulkQuestionData[]
         return [];
     }
 
+    console.log("Creating questions in bulk");
+
     // Insert all questions in bulk
     const questionDocs = processedQuestions.map(q => q.questionObj);
     const newQuestions = await Question.insertMany(questionDocs);
+
+    console.log("Created questions in bulk");
 
     // Prepare tag updates
     const tagUpdates = new Map<string, Types.ObjectId[]>();

@@ -9,6 +9,7 @@ export interface IQuestionTag extends Document {
     questions: Types.Array<Types.ObjectId | IQuestion>;
     createdAt: Date;
     updatedAt: Date;
+    isActive: boolean;
 }
 
 const questionTagSchema = new Schema<IQuestionTag>(
@@ -29,7 +30,11 @@ const questionTagSchema = new Schema<IQuestionTag>(
             type: Schema.Types.ObjectId,
             ref: 'Question',
             required: true
-        }]
+        }],
+        isActive: {
+            type: Boolean,
+            default: true
+        }
     },
     {
         timestamps: true

@@ -10,7 +10,10 @@ export interface IQuestion extends Document {
     title: string;
     content: string;
     subCategory: Types.ObjectId | ISubCategory;
+    subCategoryName: string; // Added field for subcategory name
     questionCategory: Types.ObjectId | IQuestionCategory;
+    questionCategoryName: string; // Added field for category name
+    subjectName: string; // Added field for subject name
     tags: Types.Array<Types.ObjectId | IQuestionTag>;
     year?: number; // Added year attribute
     // For MCQ (single answer)
@@ -61,9 +64,21 @@ const questionSchema = new Schema<IQuestion>(
             ref: 'SubCategory',
             required: true
         },
+        subCategoryName: {
+            type: String,
+            required: true
+        },
         questionCategory: {
             type: Schema.Types.ObjectId,
             ref: 'QuestionCategory',
+            required: true
+        },
+        questionCategoryName: {
+            type: String,
+            required: true
+        },
+        subjectName: {
+            type: String,
             required: true
         },
         tags: [{
@@ -110,7 +125,21 @@ const questionSchema = new Schema<IQuestion>(
         }
     },
     {
-        timestamps: true
+        timestamps: true,
+        toJSON: {
+            transform: (doc, ret) => {
+                delete ret._id;
+                return ret;
+            },
+            virtuals: true
+        },
+        toObject: {
+            transform: (doc, ret) => {
+                delete ret._id;
+                return ret;
+            },
+            virtuals: true
+        }
     }
 );
 
@@ -128,6 +157,36 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
     next();
 });
 
+// Populate category and subcategory names before saving
+questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) => void) {
+    try {
+        // Get subcategory name
+        if (this.subCategory && (!this.subCategoryName || this.isModified('subCategory'))) {
+            const SubCategory = model('SubCategory');
+            const subCategory = await SubCategory.findById(this.subCategory);
+            if (subCategory) {
+                this.subCategoryName = subCategory.name;
+            }
+        }
+
+        // Get category name and subject name
+        if (this.questionCategory && (!this.questionCategoryName || !this.subjectName || this.isModified('questionCategory'))) {
+            const QuestionCategory = model('QuestionCategory');
+            const category = await QuestionCategory.findById(this.questionCategory).populate('subject');
+            if (category) {
+                this.questionCategoryName = category.name;
+                if (category.subject && typeof category.subject !== 'string') {
+                    this.subjectName = category.subject.name;
+                }
+            }
+        }
+
+        next();
+    } catch (error) {
+        next(error instanceof Error ? error : new Error(String(error)));
+    }
+});
+
 // Extract year from tags
 questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) => void) {
     if (this.tags && this.tags.length > 0) {
@@ -135,7 +194,7 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
         const QuestionTag = model('QuestionTag');
         const tagDocs = await QuestionTag.find({ _id: { $in: this.tags } });
         const tagNames = tagDocs.map(tag => tag.name);
-        
+
         let yearFound = false;
         // Look for a tag containing a 4-digit number
         for (const tagName of tagNames) {
@@ -147,7 +206,7 @@ questionSchema.pre('save', async function (this: IQuestion, next: (err?: Error) 
                 break;
             }
         }
-        
+
         // If no year found, throw an error
         if (!yearFound) {
             next(new Error('No year tag found. Question must have a tag containing a 4-digit number.'));
@@ -246,6 +305,15 @@ questionSchema.post('deleteOne', { document: true, query: false }, async functio
         { $inc: { questionCount: -1 } }
     );
 });
+
+// Create compound indexes for faster queries based on denormalized fields
+questionSchema.index({ subjectName: 1, questionCategoryName: 1, subCategoryName: 1, year: 1 });
+
+// Additional indexes for common query patterns
+questionSchema.index({ subjectName: 1 });
+questionSchema.index({ questionCategoryName: 1 });
+questionSchema.index({ subCategoryName: 1 });
+questionSchema.index({ year: 1 });
 
 const Question: Model<IQuestion> = mongoose.models.Question || mongoose.model<IQuestion>('Question', questionSchema);
 

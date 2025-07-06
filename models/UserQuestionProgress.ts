@@ -1,4 +1,4 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, Document, Types, Model } from 'mongoose';
 import { IUser } from './User';
 import { IQuestion } from './Question';
 
@@ -57,4 +57,7 @@ const userQuestionProgressSchema = new Schema<IUserQuestionProgress>(
 // Create a compound index to ensure a user can't submit multiple attempts for the same question
 userQuestionProgressSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 
-export const UserQuestionProgress = model<IUserQuestionProgress>('UserQuestionProgress', userQuestionProgressSchema); 
+const UserQuestionProgress: Model<IUserQuestionProgress> = mongoose.models.UserQuestionProgress || mongoose.model<IUserQuestionProgress>('UserQuestionProgress', userQuestionProgressSchema);
+
+export default UserQuestionProgress;
+export { UserQuestionProgress };

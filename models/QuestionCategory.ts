@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, Document, Types, Model } from 'mongoose';
 import { ISubject } from './Subject';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -34,4 +34,8 @@ const questionCategorySchema = new Schema<IQuestionCategory>(
         timestamps: true
     }
 );
-export const QuestionCategory = mongoose.models.QuestionCategory || model<IQuestionCategory>('QuestionCategory', questionCategorySchema); 
+
+const QuestionCategory: Model<IQuestionCategory> = mongoose.models.QuestionCategory || mongoose.model<IQuestionCategory>('QuestionCategory', questionCategorySchema);
+
+export default QuestionCategory;
+export { QuestionCategory };

@@ -1,4 +1,5 @@
 const mongoose = await import('mongoose');
+import connectToAll from '@/models/connectToAll';
 
 const MONGODB_URI = process.env.MONGODB_URI!
 
@@ -18,6 +19,8 @@ export async function connectToDatabase() {
 
 
     const db = await mongoose.connect(MONGODB_URI);
+
+    await connectToAll();
 
     connection.isConnected = db.connections[0].readyState;
 

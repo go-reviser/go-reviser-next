@@ -56,6 +56,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                     // Project the fields we need
                     {
                         $project: {
+                            _id: 0,
                             categoryId: '$questionCategoryId',
                             name: 1,
                             questionCount: { $size: '$questions' }
@@ -128,6 +129,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                         name: { $first: '$name' },
                         questionCount: { $sum: { $size: '$questions' } }
                     }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        subjectId: 1,
+                        name: 1,
+                        questionCount: 1
+                    }
                 }
             ]);
 
@@ -156,10 +165,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Execute query with pagination
         const [total, questions] = await Promise.all([
             Question.countDocuments(query),
-            Question.find(query)
-                .populate('questionCategory', 'name')
-                .populate('subCategory', 'name')
-                .populate('tags', 'name')
+            Question.find(query, { _id: 0 })  // Explicitly exclude _id field
+                .lean()  // Convert to plain objects
+                .populate('questionCategory', 'questionCategoryId name -_id')
+                .populate('subCategory', 'subCategoryId name -_id')
+                .populate('tags', 'questionTagId name -_id')
                 .skip(skip)
                 .limit(limitNum)
                 .sort({ createdAt: -1 })

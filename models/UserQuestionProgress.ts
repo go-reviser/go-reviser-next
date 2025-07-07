@@ -3,8 +3,8 @@ import { IUser } from './User';
 import { IQuestion } from './Question';
 
 export interface IUserQuestionProgress extends Document {
-    userId: Types.ObjectId | IUser;
-    questionId: Types.ObjectId | IQuestion;
+    user: Types.ObjectId | IUser;
+    question: Types.ObjectId | IQuestion;
     timeSpent: number; // in seconds
     isCompleted: boolean;
     toRevise: boolean;
@@ -16,20 +16,18 @@ export interface IUserQuestionProgress extends Document {
 
 const userQuestionProgressSchema = new Schema<IUserQuestionProgress>(
     {
-        userId: {
+        user: {
             type: Schema.Types.ObjectId,
             ref: 'User',
             required: true
         },
-        questionId: {
+        question: {
             type: Schema.Types.ObjectId,
             ref: 'Question',
             required: true
         },
         timeSpent: {
             type: Number,
-            required: true,
-            min: 0,
             default: 0
         },
         isCompleted: {
@@ -55,7 +53,7 @@ const userQuestionProgressSchema = new Schema<IUserQuestionProgress>(
 );
 
 // Create a compound index to ensure a user can't submit multiple attempts for the same question
-userQuestionProgressSchema.index({ userId: 1, questionId: 1 }, { unique: true });
+userQuestionProgressSchema.index({ user: 1, question: 1 }, { unique: true });
 
 const UserQuestionProgress: Model<IUserQuestionProgress> = mongoose.models.UserQuestionProgress || mongoose.model<IUserQuestionProgress>('UserQuestionProgress', userQuestionProgressSchema);
 

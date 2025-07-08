@@ -49,7 +49,8 @@ const questionSchema = new Schema<IQuestion>(
         },
         questionNumber: {
             type: Number,
-            required: true
+            required: true,
+            unique: true
         },
         title: {
             type: String,

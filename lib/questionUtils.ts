@@ -181,7 +181,7 @@ export async function processBulkQuestions(
             tags: tagIds,
             isActive: isActive || true,
             link,
-            questionNumber: baseQuestionNumber + i * 3 + Math.floor(Math.random() * 3)
+            questionNumber: baseQuestionNumber + (i + 1) * 3 + Math.floor(Math.random() * 3)
         };
 
         // Check if year was found

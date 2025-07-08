@@ -1,26 +1,33 @@
 import { useState } from 'react';
 import Link from 'next/link';
+import { useApi } from '@/hooks/useApi';
+
+interface ForgotPasswordResponse {
+  success: boolean;
+  message?: string;
+}
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { fetchApi } = useApi();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/users/forgot-password', {
+      const data = await fetchApi<ForgotPasswordResponse>('/api/users/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: { email }
       });
-      await res.json();
-      setSubmitted(true);
-    } catch {
-      setError('Something went wrong. Please try again.');
+
+      if (data)
+        setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -32,7 +39,7 @@ export default function ForgotPassword() {
         <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Forgot Password</h2>
         {submitted ? (
           <div className="text-green-600 text-center">
-            If an account with that email exists, a password reset link has been sent.<br/>
+            If an account with that email exists, a password reset link has been sent.<br />
             <Link href="/signin" className="text-blue-500 hover:text-blue-400">Back to Sign In</Link>
           </div>
         ) : (

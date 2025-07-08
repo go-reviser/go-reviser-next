@@ -174,6 +174,7 @@ export async function processBulkQuestions(
             title,
             content,
             subCategory: subCategory?._id,
+            examBranches: examBranches.map(branch => branch._id),
             subCategoryName: subCategory?.name,
             questionCategory: questionCategory._id,
             questionCategoryName: questionCategory.name,

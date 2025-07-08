@@ -1,10 +1,17 @@
 import { useState } from 'react';
+import { useApi } from '@/hooks/useApi';
+
+interface ContactResponse {
+  success: boolean;
+  message?: string;
+}
 
 export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { fetchApi } = useApi();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -15,19 +22,15 @@ export default function Contact() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/contact', {
+      const data = await fetchApi<ContactResponse>('/api/contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: form
       });
-      const data = await res.json();
-      if (res.ok) {
+
+      if (data)
         setSubmitted(true);
-      } else {
-        setError(data.message || 'Something went wrong.');
-      }
-    } catch {
-      setError('Something went wrong. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }

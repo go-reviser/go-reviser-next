@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface IExamBranches extends Document {
     examBranchId: string;
     name: string;
+    displayName: string;
     description?: string;
     examTagNames: string[];
     isActive: boolean;
@@ -19,6 +20,11 @@ const ExamBranchesSchema: Schema = new Schema({
         required: true,
     },
     name: {
+        type: String,
+        trim: true,
+        required: true
+    },
+    displayName: {
         type: String,
         trim: true,
         required: true

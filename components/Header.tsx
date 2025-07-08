@@ -15,6 +15,10 @@ const Header = () => {
     return router.pathname === path ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600';
   };
 
+  const isPathActive = (path: string) => {
+    return router.pathname.startsWith(path) ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600';
+  };
+
   const isAdminActive = (path: string) => {
     return router.pathname === path ? 'bg-gray-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100';
   };
@@ -49,6 +53,7 @@ const Header = () => {
   const navLinks = [
     { href: '/', label: 'Home', requireAuth: false },
     { href: '/dashboard', label: 'Dashboard', requireAuth: true },
+    { href: '/pyq', label: 'PYQs', requireAuth: false, isPathMatch: true },
     { href: '/about', label: 'About', requireAuth: false },
     { href: '/contact', label: 'Contact', requireAuth: false },
   ];
@@ -68,7 +73,7 @@ const Header = () => {
           <Link
             key={link.href}
             href={link.href}
-            className={`${mobile ? 'block px-3 py-2 rounded-md' : ''} ${isActive(link.href)} transition-colors duration-200`}
+            className={`${mobile ? 'block px-3 py-2 rounded-md' : ''} ${link.isPathMatch ? isPathActive(link.href) : isActive(link.href)} transition-colors duration-200`}
             onClick={onClickLink}
           >
             {link.label}
